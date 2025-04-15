@@ -15,13 +15,11 @@ import PraecordiPlugin from "main";
 class LangWidget extends WidgetType {
 	lang: string;
 	content: string;
-	originalText: string;
 
-	constructor(lang: string, content: string, originalText: string) {
+	constructor(lang: string, content: string) {
 		super();
 		this.lang = lang;
 		this.content = content;
-		this.originalText = originalText;
 	}
 
 	toDOM(_view: EditorView): HTMLElement {
@@ -84,32 +82,28 @@ class LangViewPlugin implements PluginValue {
 					from,
 					to,
 					Decoration.replace({
-						widget: new LangWidget(lang, content, match[0]),
+						widget: new LangWidget(lang, content),
 						inclusive: false,
 					})
 				);
 			}
+		}
 
-			if (defaultLang) {
-				while ((match = shorthandRegex.exec(docText)) !== null) {
-					const from = match.index;
-					const to = from + match[0].length;
+		if (defaultLang) {
+			while ((match = shorthandRegex.exec(docText)) !== null) {
+				const from = match.index;
+				const to = from + match[0].length;
 
-					if (!isRangeSelected(this.view, from, to)) {
-						const content = match[1];
-						builder.add(
-							from,
-							to,
-							Decoration.replace({
-								widget: new LangWidget(
-									defaultLang,
-									content,
-									match[0]
-								),
-								inclusive: false,
-							})
-						);
-					}
+				if (!isRangeSelected(this.view, from, to)) {
+					const content = match[1];
+					builder.add(
+						from,
+						to,
+						Decoration.replace({
+							widget: new LangWidget(defaultLang, content),
+							inclusive: false,
+						})
+					);
 				}
 			}
 		}
