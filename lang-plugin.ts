@@ -6,34 +6,10 @@ import {
 	ViewUpdate,
 	WidgetType,
 	PluginValue,
-	PluginSpec,
 } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
 
 import PraecordiPlugin from "main";
-
-class LangWidget extends WidgetType {
-	lang: string;
-	content: string;
-
-	constructor(lang: string, content: string) {
-		super();
-		this.lang = lang;
-		this.content = content;
-	}
-
-	toDOM(_view: EditorView): HTMLElement {
-		const span = document.createElement("span");
-		span.className = "p-lang";
-		span.dataset.lang = this.lang;
-		span.textContent = this.content;
-		return span;
-	}
-
-	ignoreEvent(): boolean {
-		return false;
-	}
-}
 
 function isRangeSelected(view: EditorView, from: number, to: number): boolean {
 	for (const range of view.state.selection.ranges) {
@@ -77,13 +53,12 @@ class LangViewPlugin implements PluginValue {
 			const to = from + match[0].length;
 			if (!isRangeSelected(this.view, from, to)) {
 				const lang = match[1];
-				const content = match[2];
+
 				builder.add(
 					from,
 					to,
-					Decoration.replace({
-						widget: new LangWidget(lang, content),
-						inclusive: false,
+					Decoration.mark({
+						attributes: { class: "p-lang", "data-lang": lang },
 					})
 				);
 			}
@@ -95,13 +70,14 @@ class LangViewPlugin implements PluginValue {
 				const to = from + match[0].length;
 
 				if (!isRangeSelected(this.view, from, to)) {
-					const content = match[1];
 					builder.add(
 						from,
 						to,
-						Decoration.replace({
-							widget: new LangWidget(defaultLang, content),
-							inclusive: false,
+						Decoration.mark({
+							attributes: {
+								class: "p-lang",
+								"data-lang": defaultLang,
+							},
 						})
 					);
 				}

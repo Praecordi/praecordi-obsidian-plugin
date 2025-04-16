@@ -11,6 +11,7 @@ import {
 } from "obsidian";
 
 import { LangDecorationViewPlugin } from "lang-plugin";
+import { computeCursorOffset } from "utils";
 
 interface PraecordiPluginSettings {
 	enableTokenReplace: boolean;
@@ -86,21 +87,27 @@ export default class PraecordiPlugin extends Plugin {
 
 				if (modified) {
 					this.isReplacing = true;
+
+					const offset = computeCursorOffset(
+						line,
+						cursor.ch,
+						this.lookup
+					);
 					doc.replaceRange(
 						newLine,
 						{ line: cursor.line, ch: 0 },
 						{ line: cursor.line, ch: line.length }
 					);
+					doc.setCursor({ line: cursor.line, ch: offset });
 					this.isReplacing = false;
 				}
 			}
 		);
 
-		console.log("Registering editor extension");
 		this.registerEditorExtension(LangDecorationViewPlugin(this));
 
 		this.registerMarkdownPostProcessor(
-			(element: HTMLElement, ctx: MarkdownPostProcessorContext) => {
+			(element: HTMLElement, _ctx: MarkdownPostProcessorContext) => {
 				const explicitLangRegex = /{{([a-z]{2,}):(.+?)}}/g;
 				const shorthandRegex = /{{([^:{}]+?)}}/g;
 				const defaultLang = this.settings.defaultLanguage;
