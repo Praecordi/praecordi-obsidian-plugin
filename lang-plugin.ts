@@ -4,7 +4,6 @@ import {
 	DecorationSet,
 	ViewPlugin,
 	ViewUpdate,
-	WidgetType,
 	PluginValue,
 } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";

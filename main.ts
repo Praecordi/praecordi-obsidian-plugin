@@ -16,32 +16,32 @@ import { computeCursorOffset } from "utils";
 interface PraecordiPluginSettings {
 	enableTokenReplace: boolean;
 	defaultLanguage: string;
+	userLookup: Record<string, string>;
 }
 
 const DEFAULT_SETTINGS: PraecordiPluginSettings = {
 	enableTokenReplace: true,
 	defaultLanguage: "zn",
+	userLookup: {
+		o: "ø",
+		a: "ɛ",
+		oe: "œ",
+		OE: "ɶ",
+		t: "ʈ",
+		d: "ɖ",
+		th: "θ",
+		dh: "ð",
+		sh: "ʃ",
+		zh: "ʒ",
+		".s": "ʂ",
+		".z": "ʐ",
+		v: "ʋ",
+		r: "ɹ",
+	},
 };
 
 export default class PraecordiPlugin extends Plugin {
 	settings: PraecordiPluginSettings;
-
-	lookup: Record<string, string> = {
-		":o;": "ø",
-		":a;": "ɛ",
-		":oe;": "œ",
-		":OE;": "ɶ",
-		":t;": "ʈ",
-		":d;": "ɖ",
-		":th;": "θ",
-		":dh;": "ð",
-		":sh;": "ʃ",
-		":zh;": "ʒ",
-		":.s;": "ʂ",
-		":.z;": "ʐ",
-		":v;": "ʋ",
-		":r;": "ɹ",
-	};
 
 	private isReplacing: boolean = false;
 
@@ -75,30 +75,32 @@ export default class PraecordiPlugin extends Plugin {
 				const doc = editor.getDoc();
 				const cursor = doc.getCursor();
 				const line = doc.getLine(cursor.line);
-				let newLine = line;
 				let modified = false;
 
-				for (const token in this.lookup) {
-					if (newLine.includes(token)) {
-						newLine = newLine.split(token).join(this.lookup[token]);
-						modified = true;
-					}
+				const newLine = line.replace(/:([\w.]+);/g, (match, token) => {
+					return this.settings.userLookup[token] ?? match;
+				});
+
+				if (newLine !== line) {
+					modified = true;
 				}
 
 				if (modified) {
 					this.isReplacing = true;
-
 					const offset = computeCursorOffset(
 						line,
 						cursor.ch,
-						this.lookup
+						this.settings.userLookup
 					);
 					doc.replaceRange(
 						newLine,
 						{ line: cursor.line, ch: 0 },
 						{ line: cursor.line, ch: line.length }
 					);
-					doc.setCursor({ line: cursor.line, ch: offset });
+					doc.setCursor({
+						line: cursor.line,
+						ch: offset,
+					});
 					this.isReplacing = false;
 				}
 			}
@@ -164,9 +166,12 @@ export class PraecordiPluginSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.createEl("h2", { text: "Praecordi Plugin Settings" });
 
+		containerEl.createEl("h3", { text: "Token Replacement Settings" });
 		new Setting(containerEl)
 			.setName("Enable Token Replacement")
-			.setDesc("Toggle search and replace for special tokens.")
+			.setDesc(
+				"Toggle search and replace for special tokens e.g. :o; -> ø"
+			)
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.enableTokenReplace)
@@ -175,6 +180,71 @@ export class PraecordiPluginSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		for (const key in this.plugin.settings.userLookup) {
+			const value = this.plugin.settings.userLookup[key];
+
+			new Setting(containerEl)
+				.setName(`${key}`)
+				.addText((text) =>
+					text.setValue(value).onChange(async (newVal: string) => {
+						this.plugin.settings.userLookup[key] = newVal;
+						await this.plugin.saveSettings();
+					})
+				)
+				.addButton((button) =>
+					button
+						.setButtonText("Delete")
+						.setCta()
+						.onClick(async () => {
+							delete this.plugin.settings.userLookup[key];
+							await this.plugin.saveSettings();
+							this.display();
+						})
+				);
+		}
+
+		// Add new token
+		new Setting(containerEl)
+			.setName("Add New Token")
+			.addText((text) =>
+				text.setPlaceholder("Token (e.g., th)").setValue("")
+			)
+			.addText((text) =>
+				text.setPlaceholder("Replacement (e.g., θ)").setValue("")
+			)
+			.addButton((button) => {
+				let newToken = "";
+				let newValue = "";
+
+				button
+					.setButtonText("Add")
+					.setCta()
+					.onClick(async () => {
+						if (newToken && newValue) {
+							this.plugin.settings.userLookup[newToken] =
+								newValue;
+							await this.plugin.saveSettings();
+							this.display();
+						}
+					});
+
+				// Connect inputs to outer vars
+				button.buttonEl.previousElementSibling?.addEventListener(
+					"input",
+					(e: any) => {
+						newValue = e.target.value;
+					}
+				);
+				button.buttonEl.previousElementSibling?.previousElementSibling?.addEventListener(
+					"input",
+					(e: any) => {
+						newToken = e.target.value;
+					}
+				);
+			});
+
+		containerEl.createEl("h3", { text: "Language Markup Settings" });
 
 		new Setting(containerEl)
 			.setName("Default Language")
