@@ -10,8 +10,8 @@ import {
 	Setting,
 } from "obsidian";
 
-import { LangDecorationViewPlugin } from "lang-plugin";
-import { computeCursorOffset } from "utils";
+import { LangDecorationViewPlugin } from "utils/lang-plugin";
+import { computeCursorOffset } from "utils/utils";
 
 interface PraecordiPluginSettings {
 	enableTokenReplace: boolean;
@@ -46,7 +46,6 @@ export default class PraecordiPlugin extends Plugin {
 	private isReplacing: boolean = false;
 
 	async onload() {
-		console.log("PraecordiPlugin loaded");
 		await this.loadSettings();
 
 		this.addCommand({
@@ -66,69 +65,118 @@ export default class PraecordiPlugin extends Plugin {
 			},
 		});
 
-		this.app.workspace.on(
-			"editor-change",
-			(editor: Editor, _info: MarkdownView | MarkdownFileInfo) => {
-				if (!this.settings.enableTokenReplace) return;
-				if (this.isReplacing) return;
+		this.registerEvent(
+			this.app.workspace.on(
+				"editor-change",
+				(editor: Editor, _info: MarkdownView | MarkdownFileInfo) => {
+					if (!this.settings.enableTokenReplace) return;
+					if (this.isReplacing) return;
 
-				const doc = editor.getDoc();
-				const cursor = doc.getCursor();
-				const line = doc.getLine(cursor.line);
-				let modified = false;
+					const doc = editor.getDoc();
+					const cursor = doc.getCursor();
+					const line = doc.getLine(cursor.line);
+					let modified = false;
 
-				const newLine = line.replace(/:([\w.]+);/g, (match, token) => {
-					return this.settings.userLookup[token] ?? match;
-				});
-
-				if (newLine !== line) {
-					modified = true;
-				}
-
-				if (modified) {
-					this.isReplacing = true;
-					const offset = computeCursorOffset(
-						line,
-						cursor.ch,
-						this.settings.userLookup
+					const newLine = line.replace(
+						/:([\w.]+);/g,
+						(match, token) => {
+							return this.settings.userLookup[token] ?? match;
+						}
 					);
-					doc.replaceRange(
-						newLine,
-						{ line: cursor.line, ch: 0 },
-						{ line: cursor.line, ch: line.length }
-					);
-					doc.setCursor({
-						line: cursor.line,
-						ch: offset,
-					});
-					this.isReplacing = false;
+
+					if (newLine !== line) {
+						modified = true;
+					}
+
+					if (modified) {
+						this.isReplacing = true;
+						const offset = computeCursorOffset(
+							line,
+							cursor.ch,
+							this.settings.userLookup
+						);
+						doc.replaceRange(
+							newLine,
+							{ line: cursor.line, ch: 0 },
+							{ line: cursor.line, ch: line.length }
+						);
+						doc.setCursor({
+							line: cursor.line,
+							ch: offset,
+						});
+						this.isReplacing = false;
+					}
 				}
-			}
+			)
 		);
 
 		this.registerEditorExtension(LangDecorationViewPlugin(this));
-
 		this.registerMarkdownPostProcessor(
 			(element: HTMLElement, _ctx: MarkdownPostProcessorContext) => {
-				const explicitLangRegex = /{{([a-z]{2,}):(.+?)}}/g;
-				const shorthandRegex = /{{([^:{}]+?)}}/g;
 				const defaultLang = this.settings.defaultLanguage;
 
-				element.innerHTML = element.innerHTML.replace(
-					explicitLangRegex,
-					(_, lang, content) => {
-						return `<span class="p-lang" data-lang="${lang}">${content}</span>`;
-					}
-				);
+				function processNode(node: Node) {
+					if (node.nodeType === Node.TEXT_NODE) {
+						const text = node.nodeValue;
+						if (!text) return;
 
-				if (defaultLang) {
-					element.innerHTML = element.innerHTML.replace(
-						shorthandRegex,
-						(_, content) => {
-							return `<span class="p-lang" data-lang="${defaultLang}">${content}</span>`;
+						const fragment = document.createDocumentFragment();
+						let lastIndex = 0;
+
+						let match;
+						const combinedRegex = new RegExp(
+							defaultLang
+								? /{{([a-z]{2,}):(.+?)}}|{{([^:{}]+?)}}/g
+								: /{{([a-z]{2,}):(.+?)}}/g
+						);
+
+						while ((match = combinedRegex.exec(text)) !== null) {
+							// Add any text before the match
+							if (match.index > lastIndex) {
+								fragment.appendChild(
+									document.createTextNode(
+										text.slice(lastIndex, match.index)
+									)
+								);
+							}
+
+							const span = document.createElement("span");
+							span.className = "p-lang";
+
+							if (match[1] && match[2]) {
+								// explicitLangRegex match
+								span.dataset.lang = match[1];
+								span.textContent = match[2];
+							} else if (defaultLang && match[3]) {
+								// shorthandRegex match
+								span.dataset.lang = defaultLang;
+								span.textContent = match[3];
+							}
+
+							fragment.appendChild(span);
+							lastIndex = combinedRegex.lastIndex;
 						}
-					);
+
+						// Add remaining text after last match
+						if (lastIndex < text.length) {
+							fragment.appendChild(
+								document.createTextNode(text.slice(lastIndex))
+							);
+						}
+
+						if (fragment.childNodes.length > 0) {
+							node.parentNode?.replaceChild(fragment, node);
+						}
+					} else if (node.nodeType === Node.ELEMENT_NODE) {
+						// Recurse into children
+						const children = Array.from(node.childNodes);
+						for (const child of children) {
+							processNode(child);
+						}
+					}
 				}
+
+				processNode(element);
 			}
 		);
 
@@ -136,7 +184,6 @@ export default class PraecordiPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.log("PraecordiPlugin unloaded");
 	}
 
 	async loadSettings() {
@@ -164,9 +211,8 @@ export class PraecordiPluginSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "Praecordi Plugin Settings" });
 
-		containerEl.createEl("h3", { text: "Token Replacement Settings" });
+		new Setting(containerEl).setName("Token Replacement").setHeading();
 		new Setting(containerEl)
 			.setName("Enable Token Replacement")
 			.setDesc(
@@ -244,8 +290,7 @@ export class PraecordiPluginSettingTab extends PluginSettingTab {
 				);
 			});
 
-		containerEl.createEl("h3", { text: "Language Markup Settings" });
-
+		new Setting(containerEl).setName("Language Markup").setHeading();
 		new Setting(containerEl)
 			.setName("Default Language")
 			.setDesc(

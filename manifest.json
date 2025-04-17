@@ -2,8 +2,8 @@
 	"id": "praecordi-obsidian-plugin",
 	"name": "Praecordi's Obsidian Plugin",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "A multi-purpose plugin for me :)",
+	"minAppVersion": "1.8.9",
+	"description": "A multi-purpose plugin for managing my worldbuilding vault.",
 	"author": "Praecordi",
 	"isDesktopOnly": true
 }
