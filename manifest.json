@@ -1,7 +1,7 @@
 {
-	"id": "praecordi-plugin",
-	"name": "Praecordi's Plugin",
-	"version": "1.0.1",
+	"id": "praecordi-worldbuilding-tool",
+	"name": "Praecordi's Worldbuilding Multitool",
+	"version": "1.0.2",
 	"minAppVersion": "1.8.9",
 	"description": "A multi-purpose plugin for managing my worldbuilding vault.",
 	"author": "Praecordi",
