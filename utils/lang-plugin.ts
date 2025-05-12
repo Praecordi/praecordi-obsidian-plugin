@@ -37,7 +37,7 @@ class LangViewPlugin implements PluginValue {
 		}
 	}
 
-	destory() {}
+	destroy() {}
 
 	buildDecorations(): DecorationSet {
 		const builder = new RangeSetBuilder<Decoration>();

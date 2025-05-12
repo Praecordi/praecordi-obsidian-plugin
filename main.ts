@@ -50,7 +50,7 @@ export default class PraecordiPlugin extends Plugin {
 
 		this.addCommand({
 			id: "toggle-token-replacement",
-			name: "Toggle Token Replacement",
+			name: "Toggle token replacement",
 			callback: () => {
 				this.settings.enableTokenReplace =
 					!this.settings.enableTokenReplace;
@@ -183,8 +183,7 @@ export default class PraecordiPlugin extends Plugin {
 		this.addSettingTab(new PraecordiPluginSettingTab(this.app, this));
 	}
 
-	onunload() {
-	}
+	onunload() {}
 
 	async loadSettings() {
 		this.settings = Object.assign(
@@ -212,9 +211,9 @@ export class PraecordiPluginSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		new Setting(containerEl).setName("Token Replacement").setHeading();
+		new Setting(containerEl).setName("Token replacement").setHeading();
 		new Setting(containerEl)
-			.setName("Enable Token Replacement")
+			.setName("Enable token replacement")
 			.setDesc(
 				"Toggle search and replace for special tokens e.g. :o; -> ø"
 			)
@@ -224,75 +223,86 @@ export class PraecordiPluginSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.enableTokenReplace = value;
 						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
 
-		for (const key in this.plugin.settings.userLookup) {
-			const value = this.plugin.settings.userLookup[key];
+		if (this.plugin.settings.enableTokenReplace) {
+			for (const key in this.plugin.settings.userLookup) {
+				const value = this.plugin.settings.userLookup[key];
 
+				new Setting(containerEl)
+					.setName(`${key}`)
+					.addText((text) =>
+						text
+							.setValue(value)
+							.onChange(async (newVal: string) => {
+								this.plugin.settings.userLookup[key] = newVal;
+								await this.plugin.saveSettings();
+							})
+					)
+					.addButton((button) =>
+						button
+							.setButtonText("Delete")
+							.setCta()
+							.onClick(async () => {
+								delete this.plugin.settings.userLookup[key];
+								await this.plugin.saveSettings();
+								this.display();
+							})
+					);
+			}
+
+			// Add new token
+			let newToken = "";
+			let newValue = "";
 			new Setting(containerEl)
-				.setName(`${key}`)
+				.setName("Add new token")
 				.addText((text) =>
-					text.setValue(value).onChange(async (newVal: string) => {
-						this.plugin.settings.userLookup[key] = newVal;
-						await this.plugin.saveSettings();
-					})
+					text
+						.setPlaceholder("Token (e.g., th)")
+						.onChange((value) => (newToken = value))
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("Replacement (e.g., θ)")
+						.setValue("")
+						.onChange((value) => (newValue = value))
 				)
 				.addButton((button) =>
 					button
-						.setButtonText("Delete")
+						.setButtonText("Add")
 						.setCta()
 						.onClick(async () => {
-							delete this.plugin.settings.userLookup[key];
-							await this.plugin.saveSettings();
-							this.display();
+							if (!newToken || !newValue) {
+								new Notice("Both fields must be filled!");
+								return;
+							}
+
+							if (
+								this.plugin.settings.userLookup.hasOwnProperty(
+									newToken
+								)
+							) {
+								new Notice(
+									`Token "${newToken}" already exists!`
+								);
+								return;
+							}
+
+							if (newToken && newValue) {
+								this.plugin.settings.userLookup[newToken] =
+									newValue;
+								await this.plugin.saveSettings();
+								this.display();
+							}
 						})
 				);
 		}
 
-		// Add new token
+		new Setting(containerEl).setName("Language markup").setHeading();
 		new Setting(containerEl)
-			.setName("Add New Token")
-			.addText((text) =>
-				text.setPlaceholder("Token (e.g., th)").setValue("")
-			)
-			.addText((text) =>
-				text.setPlaceholder("Replacement (e.g., θ)").setValue("")
-			)
-			.addButton((button) => {
-				let newToken = "";
-				let newValue = "";
-
-				button
-					.setButtonText("Add")
-					.setCta()
-					.onClick(async () => {
-						if (newToken && newValue) {
-							this.plugin.settings.userLookup[newToken] =
-								newValue;
-							await this.plugin.saveSettings();
-							this.display();
-						}
-					});
-
-				// Connect inputs to outer vars
-				button.buttonEl.previousElementSibling?.addEventListener(
-					"input",
-					(e: any) => {
-						newValue = e.target.value;
-					}
-				);
-				button.buttonEl.previousElementSibling?.previousElementSibling?.addEventListener(
-					"input",
-					(e: any) => {
-						newToken = e.target.value;
-					}
-				);
-			});
-
-		new Setting(containerEl).setName("Language Markup").setHeading();
-		new Setting(containerEl)
-			.setName("Default Language")
+			.setName("Default language")
 			.setDesc(
 				"If set, shorthand markup {{content}} will be treated as {{lang:content}} using this default language.\ne.g. zn, fr, de, etc; "
 			)
