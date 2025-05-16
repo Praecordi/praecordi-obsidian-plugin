@@ -47,6 +47,7 @@ export default class PraecordiPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		this.app.workspace.trigger("parse-style-settings");
 
 		this.addCommand({
 			id: "toggle-token-replacement",
